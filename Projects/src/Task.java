@@ -18,44 +18,14 @@ public final class Task {
 
 	public static void main(String[] args) throws IOException {
 		Map<String, List<ProjectData>> result = new HashMap<>();
-		Map<CommonTimeProjectData, Long> timeResults = new HashMap<>();
-		List<CommonTimeProjectData> timeResultsInPairs = new ArrayList<CommonTimeProjectData>();
         String currentPath = System.getProperty("user.dir")+"\\src\\data\\";
 		List<ProjectData> projects = downloadHotelFile(currentPath+"tmp.txt");
 
 		result = projects.stream().collect(Collectors.groupingBy(ProjectData::getProject));
 		
-		for (Map.Entry<String, List<ProjectData>> entry:result.entrySet()){
-			List<ProjectData> colleagues = entry.getValue();
-			for (int i = 0; i < colleagues.size(); i++) {
-				ProjectData member1 = colleagues.get(i);
-				for (int j = i+1; j < colleagues.size(); j++) {
-					ProjectData member2 = colleagues.get(j);
-					if( !member1.getCode().equalsIgnoreCase(member2.getCode()) ) {
-						long timeInProject = getTimeInProject(member1,member2);
-						if( timeInProject != 0 ){
-							timeResultsInPairs.add(new CommonTimeProjectData(member1.getCode(), member2.getCode(), entry.getKey(), timeInProject));
-						}
-					}
-				}
-			}
-		}
+		List<CommonTimeProjectData> timeResultsInPairs = getCommonTimesInPairs(result);
 		
-		timeResultsInPairs.stream().forEach(p ->{
-			CommonTimeProjectData pairMembersInMap = timeResults.keySet().stream()
-					.filter(e->(e.getCodeMember1().equalsIgnoreCase(p.getCodeMember1()) && e.getCodeMember2().equalsIgnoreCase(p.getCodeMember2())
-							|| (e.getCodeMember1().equalsIgnoreCase(p.getCodeMember2()) && e.getCodeMember2().equalsIgnoreCase(p.getCodeMember1()))))
-					.findAny().orElse(null);
-			if (pairMembersInMap != null){
-				timeResults.put(pairMembersInMap, timeResults.get(pairMembersInMap) + p.getTimeInProject());
-			} else {
-				timeResults.put(p, p.getTimeInProject());
-			}
-		});
-		
-	    Entry<CommonTimeProjectData, Long> maxEntry = Collections.max(timeResults.entrySet(), 
-	    		(Entry<CommonTimeProjectData, Long> e1, Entry<CommonTimeProjectData, Long> e2) -> e1.getValue()
-	            .compareTo(e2.getValue()));	
+		Entry<CommonTimeProjectData, Long> maxEntry = getPairWithMaxDatesInProjects(timeResultsInPairs);	
 	    
 		if ( maxEntry != null ) {
 			String member1 = maxEntry.getKey().getCodeMember1();
@@ -71,7 +41,54 @@ public final class Task {
 
 		}
 	}
+
+    /**
+     * This method calculates and assigns the dates in each common project for each pair
+     */
+	private static List<CommonTimeProjectData> getCommonTimesInPairs(Map<String, List<ProjectData>> result) {
+		List<CommonTimeProjectData> timeResultsInPairs = new ArrayList<CommonTimeProjectData>();
+		for (Map.Entry<String, List<ProjectData>> entry:result.entrySet()){
+			List<ProjectData> colleagues = entry.getValue();
+			for (int i = 0; i < colleagues.size(); i++) {
+				ProjectData member1 = colleagues.get(i);
+				for (int j = i+1; j < colleagues.size(); j++) {
+					ProjectData member2 = colleagues.get(j);
+					if( !member1.getCode().equalsIgnoreCase(member2.getCode()) ) {
+						long timeInProject = getTimeInProject(member1,member2);
+						if( timeInProject != 0 ){
+							timeResultsInPairs.add(new CommonTimeProjectData(member1.getCode(), member2.getCode(), entry.getKey(), timeInProject));
+						}
+					}
+				}
+			}
+		}
+		return timeResultsInPairs;
+	}
 	
+    /**
+     * Calculates the overall time in projects for each pair and finds the pair with max time 
+     */
+	private static Entry<CommonTimeProjectData, Long> getPairWithMaxDatesInProjects(
+			List<CommonTimeProjectData> timeResultsInPairs) {
+		Map<CommonTimeProjectData, Long> timeResults = new HashMap<>();
+		timeResultsInPairs.stream().forEach(p ->{
+			CommonTimeProjectData pairMembersInMap = timeResults.keySet().stream()
+					.filter(e->(e.getCodeMember1().equalsIgnoreCase(p.getCodeMember1()) && e.getCodeMember2().equalsIgnoreCase(p.getCodeMember2())
+							|| (e.getCodeMember1().equalsIgnoreCase(p.getCodeMember2()) && e.getCodeMember2().equalsIgnoreCase(p.getCodeMember1()))))
+					.findAny().orElse(null);
+			if (pairMembersInMap != null){
+				timeResults.put(pairMembersInMap, timeResults.get(pairMembersInMap) + p.getTimeInProject());
+			} else {
+				timeResults.put(p, p.getTimeInProject());
+			}
+		});
+		
+	    Entry<CommonTimeProjectData, Long> maxEntry = Collections.max(timeResults.entrySet(), 
+	    		(Entry<CommonTimeProjectData, Long> e1, Entry<CommonTimeProjectData, Long> e2) -> e1.getValue()
+	            .compareTo(e2.getValue()));
+		return maxEntry;
+	}
+
 	public static long getTimeInProject(ProjectData member1, ProjectData member2) {
 		long timeInProject = 0;
 		try {
@@ -149,7 +166,6 @@ public final class Task {
 		String toDate = null;
 		for (int i = 0; i < row.length; i++) {
 			String cell = row[i] == null ? null : row[i].trim();
-			// the cell is not empty
 			if (cell != null && !cell.isEmpty()) {
 				switch (i) {
 				case 0:
